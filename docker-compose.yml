@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quran-academy-backend:latest
+    container_name: quran-academy-backend
+    restart: unless-stopped
+    # Loads MONGODB_URI, JWT secrets, MAIL_* etc. from the local .env file.
+    env_file:
+      - .env
+    environment:
+      # Ensure the app listens on the port we publish, regardless of .env.
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:3000/docs',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
