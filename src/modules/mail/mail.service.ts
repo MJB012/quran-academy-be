@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -6,14 +6,19 @@ import type { Transporter } from 'nodemailer';
 export type OtpPurposeKind = 'signup' | 'reset';
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter | null = null;
   private readonly from: string;
 
   constructor(private readonly config: ConfigService) {
-    const user = this.config.get<string>('MAIL_USER');
-    const pass = this.config.get<string>('MAIL_PASSWORD');
+    const user = this.config.get<string>('MAIL_USER')?.trim();
+    // Gmail app passwords are shown in 4 space-separated groups; SMTP needs them
+    // with no spaces (and we strip any stray quotes), so normalise defensively.
+    const pass = this.config
+      .get<string>('MAIL_PASSWORD')
+      ?.replace(/['"]/g, '')
+      .replace(/\s+/g, '');
     this.from =
       this.config.get<string>('MAIL_FROM') ??
       (user ? `Quran Academy <${user}>` : 'Quran Academy <no-reply@quran-academy.app>');
@@ -35,6 +40,20 @@ export class MailService {
         : port === 465,
       auth: { user, pass },
     });
+  }
+
+  /** Verify SMTP credentials at startup so misconfiguration is obvious in logs. */
+  async onModuleInit(): Promise<void> {
+    if (!this.transporter) return;
+    try {
+      await this.transporter.verify();
+      this.logger.log('SMTP connection verified — OTP emails are enabled.');
+    } catch (err) {
+      this.logger.error(
+        'SMTP verification FAILED — check MAIL_USER / MAIL_PASSWORD (Gmail app password) and that 2FA is enabled.',
+        err as Error,
+      );
+    }
   }
 
   /** True when SMTP credentials are configured and emails are actually sent. */
