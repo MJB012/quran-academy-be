@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model, Types } from 'mongoose';
+import { MailService } from '../mail/mail.service';
 import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -24,8 +25,18 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
     @InjectModel(Otp.name) private readonly otpModel: Model<OtpDocument>,
   ) {}
+
+  /**
+   * Whether to expose the OTP code in API responses. We only do this when email
+   * delivery is NOT configured (so the demo/dev flow keeps working). Once SMTP
+   * credentials are set, the code is delivered by email only.
+   */
+  private get exposeOtp(): boolean {
+    return !this.mail.isEnabled;
+  }
 
   async signup(dto: SignupDto) {
     const password = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
@@ -38,10 +49,12 @@ export class AuthService {
       role: dto.role,
     });
     const code = await this.createOtp((user._id as Types.ObjectId).toString(), OtpPurpose.SIGNUP);
+    await this.mail.sendOtp(user.email, code, 'signup');
     return {
       user: user.toJSON(),
-      // In production, send via email; for now we return for the app's OTP screen.
-      otp: code,
+      // Only returned when email delivery is disabled (dev/demo). With SMTP
+      // configured, the code is delivered by email only.
+      ...(this.exposeOtp ? { otp: code } : {}),
     };
   }
 
@@ -64,8 +77,8 @@ export class AuthService {
     const user = await this.users.findByEmail(dto.email);
     if (user) {
       const code = await this.createOtp((user._id as Types.ObjectId).toString(), OtpPurpose.RESET);
-      // In production, email the code; for the demo we return it.
-      return { sent: true, otp: code };
+      await this.mail.sendOtp(user.email, code, 'reset');
+      return { sent: true, ...(this.exposeOtp ? { otp: code } : {}) };
     }
     return { sent: true };
   }

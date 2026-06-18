@@ -7,6 +7,7 @@ import { validateEnv } from './config/env.validation';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AuthModule } from './modules/auth/auth.module';
+import { MailModule } from './modules/mail/mail.module';
 import { UsersModule } from './modules/users/users.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
@@ -25,6 +26,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    MailModule,
     AuthModule,
     UsersModule,
     TeachersModule,

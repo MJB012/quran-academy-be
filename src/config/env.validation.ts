@@ -39,6 +39,33 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGINS: string = '*';
+
+  // --- Email (SMTP) ---
+  // Optional: when MAIL_USER + MAIL_PASSWORD are absent, OTPs are logged
+  // to the server console instead of being emailed.
+  @IsString()
+  @IsOptional()
+  MAIL_HOST: string = 'smtp.gmail.com';
+
+  @IsNumber()
+  @IsOptional()
+  MAIL_PORT: number = 465;
+
+  @IsString()
+  @IsOptional()
+  MAIL_SECURE?: string;
+
+  @IsString()
+  @IsOptional()
+  MAIL_USER?: string;
+
+  @IsString()
+  @IsOptional()
+  MAIL_PASSWORD?: string;
+
+  @IsString()
+  @IsOptional()
+  MAIL_FROM?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
