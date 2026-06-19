@@ -12,6 +12,7 @@ import { UsersModule } from './modules/users/users.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SignalingModule } from './modules/signaling/signaling.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TeachersModule,
     BookingsModule,
     NotificationsModule,
+    SignalingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
