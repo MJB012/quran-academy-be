@@ -5,6 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model, Types } from 'mongoose';
 import { MailService } from '../mail/mail.service';
+import { TeachersService } from '../teachers/teachers.service';
 import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mail: MailService,
+    private readonly teachers: TeachersService,
     @InjectModel(Otp.name) private readonly otpModel: Model<OtpDocument>,
   ) {}
 
@@ -97,7 +99,11 @@ export class AuthService {
     await otp.save();
 
     if (dto.purpose === OtpPurpose.SIGNUP) {
-      await this.users.markEmailVerified((user._id as Types.ObjectId).toString());
+      const verifiedUserId = (user._id as Types.ObjectId).toString();
+      await this.users.markEmailVerified(verifiedUserId);
+      // If a teacher just verified their email and is already onboarded,
+      // announce their availability to students in real time.
+      await this.teachers.broadcastIfTeacherVisible(verifiedUserId);
       const tokens = await this.issueTokens({
         sub: (user._id as Types.ObjectId).toString(),
         email: user.email,

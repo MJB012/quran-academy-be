@@ -6,6 +6,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { TeacherOnboardingDto } from './dto/onboarding.dto';
 import { ListTeachersQuery } from './dto/list-teachers.query';
 import { TeacherProfile, TeacherProfileDocument } from './schemas/teacher-profile.schema';
+import { TeachersGateway } from './teachers.gateway';
 
 export interface TeacherView {
   id: string;
@@ -23,6 +24,7 @@ export class TeachersService {
   constructor(
     @InjectModel(TeacherProfile.name) private readonly profileModel: Model<TeacherProfileDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly gateway: TeachersGateway,
   ) {}
 
   async onboard(userId: string, dto: TeacherOnboardingDto): Promise<TeacherProfileDocument> {
@@ -32,7 +34,23 @@ export class TeachersService {
       { $set: { ...dto, userId: uid, isOnboarded: true } },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     );
+    await this.broadcastIfTeacherVisible(userId);
     return updated!;
+  }
+
+  /**
+   * Emit a real-time `changed` event if this user is now a discoverable teacher
+   * (verified email + completed onboarding). Safe to call on onboarding,
+   * profile edits, or after email verification.
+   */
+  async broadcastIfTeacherVisible(userId: string): Promise<void> {
+    const uid = new Types.ObjectId(userId);
+    const profile = await this.profileModel.findOne({ userId: uid }).lean();
+    if (!profile?.isOnboarded) return;
+    const user = await this.userModel.findById(uid).lean();
+    if (user?.role === UserRole.TEACHER && user.emailVerified) {
+      this.gateway.broadcastChanged();
+    }
   }
 
   async getMyProfile(userId: string): Promise<TeacherProfileDocument | null> {
@@ -58,7 +76,11 @@ export class TeachersService {
     ]);
 
     const users = await this.userModel
-      .find({ _id: { $in: profiles.map((p) => p.userId) }, role: UserRole.TEACHER })
+      .find({
+        _id: { $in: profiles.map((p) => p.userId) },
+        role: UserRole.TEACHER,
+        emailVerified: true,
+      })
       .lean();
 
     const userById = new Map(users.map((u) => [u._id.toString(), u]));
@@ -97,7 +119,9 @@ export class TeachersService {
     const uid = new Types.ObjectId(id);
     const [profile, user] = await Promise.all([
       this.profileModel.findOne({ userId: uid }).lean(),
-      this.userModel.findOne({ _id: uid, role: UserRole.TEACHER }).lean(),
+      this.userModel
+        .findOne({ _id: uid, role: UserRole.TEACHER, emailVerified: true })
+        .lean(),
     ]);
     if (!profile || !user) throw new NotFoundException('Teacher not found');
     return {
