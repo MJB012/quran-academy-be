@@ -62,7 +62,13 @@ export class BookingsService {
     return booking;
   }
 
-  async confirm(id: string): Promise<void> {
-    await this.bookingModel.findByIdAndUpdate(id, { status: BookingStatus.CONFIRMED });
+  async confirm(id: string, userId: string): Promise<BookingDocument> {
+    const booking = await this.getOne(id, userId, UserRole.STUDENT);
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new ForbiddenException('Only pending bookings can be confirmed');
+    }
+    booking.status = BookingStatus.CONFIRMED;
+    await booking.save();
+    return booking;
   }
 }

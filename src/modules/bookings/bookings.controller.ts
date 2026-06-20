@@ -30,6 +30,12 @@ export class BookingsController {
     return this.bookings.getOne(id, user.userId, user.role);
   }
 
+  @Roles(UserRole.STUDENT)
+  @Patch(':id/confirm')
+  confirm(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.bookings.confirm(id, user.userId);
+  }
+
   @Patch(':id/cancel')
   cancel(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.bookings.cancel(id, user.userId, user.role);
