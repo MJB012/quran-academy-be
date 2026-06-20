@@ -40,8 +40,7 @@ export class BookingsService {
       .find(filter)
       .sort({ date: 1 })
       .populate('studentId', 'firstName lastName')
-      .populate('teacherId', 'firstName lastName')
-      .lean();
+      .populate('teacherId', 'firstName lastName');
   }
 
   async getOne(id: string, userId: string, role: UserRole): Promise<BookingDocument> {
